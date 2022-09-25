@@ -8,5 +8,6 @@ Controls:
  - Up/down arrows zoom the y scale, keeping the top in the same place; Ctrl+up/down zooms by smaller increments.
  - Shift+up/down arrows zoom the x axis, keeping the center in the same place; Ctrl+Shift+up/down zooms by smaller increments.
  - Space changes y axis from a negative-inverse scale to a linear scale, and repeated space changes through increasing root scales; Shift+Space reverses this.
+ - + increases the denominators' upper limit, - decreases it (by factors of 2).
  - L toggles labels, drawn in gray at the top of the screen at the highest and lowest `x` values that correspond to some `1/n`.
  - Ctrl+0 resets zoom to starting values.
