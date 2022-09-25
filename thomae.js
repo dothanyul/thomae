@@ -54,6 +54,7 @@ function rainbow(n, factor=1) {
 // these functions actually draw things
 
 // put some x axis scale labels on
+// TODO debug this, I think it's putting them in the wrong place or something sometimes
 function scale() {
     let ct = canvas.getContext("2d");
     ct.font = '12px mono';
@@ -64,7 +65,7 @@ function scale() {
     if (isFinite(min)) ct.fillText(min, (1/min - xmin) / (xmax - xmin) * canvas.width + 4, 10);
 }
 
-// background, currently putting some close set bars behind just to have a y scale
+// draw a background, might do something interesting here or might not
 function background() {
     let ct = canvas.getContext("2d");
     let scale = 5 / yscale;
@@ -75,7 +76,7 @@ function background() {
         scale /= 2;
     }
     for (let y=0; y<canvas.height; y++) {
-//        let color = "#" + (y % scale >= 1 ? "00" : "44").repeat(3);
+//        let color = "#" + (y % scale >= 1 ? "00" : "44").repeat(3); // some close set bars for a y scale
         ct.strokeStyle = "#000";
         ct.strokeRect(0, y, canvas.width, 1);
     }
@@ -94,76 +95,18 @@ function thomaeInverse() {
     }
 }
 
-// draw Thomae's function on a negative-linear y scale (with color corresponding to magnitude)
-function thomaeLinear() {
-    let ct = canvas.getContext("2d");
-    ct.strokeStyle = "white";
-    for (let q = 1; q < canvas.height / Math.sqrt(yscale * (xmax - xmin)) / 4; q++) {
-        for (let p = Math.floor(xmin * q) + (q == 1 ? 0 : 1); p <= xmax * q; p++) {
-            if (gcd(Math.abs(p),q) == 1) {
-//                ct.strokeStyle = rainbow( 1 / q / yscale);
-                ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, canvas.height * 2 / q / yscale, 0, -canvas.height * 2 / q / yscale);
-            }
-        }
-    }
-}
-
 // this function handles the interface for zooming
 // left/right to scroll, up/down to zoom y around top, shift+up/down to zoom x around center
-// zoom and scroll will be by 10% of current width or height
-// spacebar to toggle linear on/off, shift+spacebar to toggle inverse on/off
+// zoom and scroll will be by some constant fraction of width or height
+// L to toggle labels on/off
 function keyHandler(keyEvent) {
+    let width = xmax - xmin;
     switch (keyEvent.key) {
-        case "ArrowUp":
-            if (keyEvent.shiftKey) {
-                xmin += (xmax - xmin) * motion;
-                xmax += (xmax - xmin) * motion;
-            } else {
-                yscale /= 1 + motion;
-            }
-            break;
-        case "ArrowDown":
-            if (keyEvent.shiftKey) {
-                xmin -= (xmax - xmin) * motion;
-                xmax -= (xmax - xmin) * motion;
-            } else {
-                yscale *= 1 + motion;
-            }
-            break;
-        case "ArrowLeft":
-            if (keyEvent.ctrlKey) {
-                if (keyEvent.shiftKey) {
-                    xmin = xmax - (xmax - xmin) * (1 + motion);
-                } else {
-                    xmax = xmin + (xmax - xmin) / (1 + motion);
-                }
-            } else {
-                let width = xmax - xmin;
-                xmax -= width * motion;
-                xmin -= width * motion;
-            }
-            break;
-        case "ArrowRight":
-            if (keyEvent.ctrlKey) {
-                if (keyEvent.shiftKey) {
-                    xmax = xmin + (xmax - xmin) * (1 + motion);
-                } else {
-                    xmin = xmax - (xmax - xmin) / (1 + motion);
-                }
-            } else {
-                let width = xmax - xmin;
-                xmax += width * motion;
-                xmin += width * motion;
-            }
-            break;
-        case " ":
-            if (keyEvent.shiftKey) {
-                drawInverse = !drawInverse;
-            } else if (keyEvent.ctrlKey) {
-                labels = !labels;
-            } else {
-                drawLinear = !drawLinear;
-            }
+        case "i":
+            console.log("X axis: " + xmin + " to " + xmax);
+            console.log("Y axis: " + -yscale * canvas.height + " to 0");
+        case "l":
+            labels = !labels;
             break;
         case "0":
             if (keyEvent.ctrlKey) {
@@ -172,12 +115,68 @@ function keyHandler(keyEvent) {
                 yscale = 1/2;
                 break;
             }
+        case "ArrowUp":
+            if (keyEvent.shiftKey) {
+                if (keyEvent.ctrlKey) {
+                    xmin += width * motion * motion;
+                    xmax -= width * motion * motion;
+                    yscale *= (1 + motion * motion);
+                } else {
+                    xmin += width * motion;
+                    xmax -= width * motion;
+                    yscale *= (1 + motion);
+                }
+            } else {
+                if (keyEvent.ctrlKey) {
+                    yscale /= 1 + motion * motion;
+                } else {
+                    yscale /= 1 + motion;
+                }
+            }
+            break;
+        case "ArrowDown":
+            if (keyEvent.shiftKey) {
+                if (keyEvent.ctrlKey) {
+                    xmin -= width * motion * motion;
+                    xmax += width * motion * motion;
+                    yscale /= (1 + motion * motion);
+                } else {
+                    xmin -= width * motion;
+                    xmax += width * motion;
+                    yscale /= (1 + motion);
+                }
+            } else {
+                if (keyEvent.ctrlKey) {
+                    yscale *= 1 + motion * motion;
+                } else {
+                    yscale *= 1 + motion;
+                }
+            }
+            break;
+        case "ArrowLeft":
+            if (keyEvent.ctrlKey) {
+                xmax += width * motion * motion;
+                xmin += width * motion * motion;
+            } else {
+                xmax += width * motion;
+                xmin += width * motion;
+            }
+            break;
+        case "ArrowRight":
+            if (keyEvent.ctrlKey) {
+                xmax -= width * motion * motion;
+                xmin -= width * motion * motion;
+            } else {
+                xmax -= width * motion;
+                xmin -= width * motion;
+            }
+            break;
         default:
+            console.log(keyEvent.key);
             return;
     }
     background();
-    if (drawLinear) thomaeLinear();
-    if (drawInverse) thomaeInverse();
+    thomaeInverse();
     if (labels) scale();
 }
 
@@ -185,16 +184,15 @@ function keyHandler(keyEvent) {
 let canvas;
 const rate = 1076;
 // scaling and moving factors
-let xmin = 0, xmax = 0.1, yscale = 1/10;
+let xmin = 0, xmax = 1, yscale = 1/2;
 let motion = 1/16;
-let drawInverse = true, drawLinear = true, labels = false;
+labels = false;
 
 // setup config variables and start the program
 function main() {
     canvas = document.getElementById("canvas");
     background();
-    if (drawLinear) thomaeLinear();
-    if (drawInverse) thomaeInverse();
+    thomaeInverse();
     if (labels) scale();
     document.addEventListener("keydown", keyHandler);
 }
