@@ -85,15 +85,23 @@ function background() {
 // draw Thomae's function on a negative-inverse y scale (with color corresponding to magnitude)
 function thomaeInverse() {
     let ct = canvas.getContext("2d");
-    for (let q = 1; q < canvas.height * yscale; q++) {
+    for (let q = 1; q < maxq; q++) {
         for (let p = Math.floor(xmin * q) + (q == 1 ? 0 : 1); p <= xmax * q; p++) {
             if (gcd(Math.abs(p),q) == 1) {
-                ct.strokeStyle = rainbow(q / rate / yscale);
-                ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, Math.floor(q / yscale), 0, canvas.height);
+                if (power <= 0) {
+                    ct.strokeStyle = rainbow(q / canvas.height / yscale);
+                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, q / yscale, 0, canvas.height);
+                } else {
+                    height = canvas.height / Math.pow(q * yscale, 1 / power);
+                    ct.strokeStyle = rainbow(1 - height / canvas.height);
+                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, canvas.height - height, 0, height);
+                }
             }
         }
     }
 }
+
+// TODO add option for a power scale, where you can change the denominator limit and the power?
 
 // this function handles the interface for zooming
 // left/right to scroll, up/down to zoom y around top, shift+up/down to zoom x around center
@@ -107,6 +115,23 @@ function keyHandler(keyEvent) {
             console.log("Y axis: " + -yscale * canvas.height + " to 0");
         case "l":
             labels = !labels;
+            break;
+        case " ":
+            if (event.shiftKey) {
+                if (power <= 1) {
+                    power = 0;
+                } else {
+                    power--;
+                }
+            } else {
+                power++;
+            }
+            break;
+        case "=":
+            maxq *= 2;
+            break;
+        case "-":
+            maxq /= 2;
             break;
         case "0":
             if (keyEvent.ctrlKey) {
@@ -128,9 +153,9 @@ function keyHandler(keyEvent) {
                 }
             } else {
                 if (keyEvent.ctrlKey) {
-                    yscale /= 1 + motion * motion;
-                } else {
                     yscale /= 1 + motion;
+                } else {
+                    yscale /= 1 + Math.pow(motion, 1/2);
                 }
             }
             break;
@@ -147,9 +172,9 @@ function keyHandler(keyEvent) {
                 }
             } else {
                 if (keyEvent.ctrlKey) {
-                    yscale *= 1 + motion * motion;
-                } else {
                     yscale *= 1 + motion;
+                } else {
+                    yscale *= 1 + Math.pow(motion, 1/2);
                 }
             }
             break;
@@ -184,13 +209,15 @@ function keyHandler(keyEvent) {
 let canvas;
 const rate = 1076;
 // scaling and moving factors
-let xmin = 0, xmax = 1, yscale = 1/2;
+let xmin = 0, xmax = 1, yscale = 1/2, power = 0;
+let maxq;
 let motion = 1/16;
 labels = false;
 
 // setup config variables and start the program
 function main() {
     canvas = document.getElementById("canvas");
+    maxq = canvas.height / yscale;
     background();
     thomaeInverse();
     if (labels) scale();
