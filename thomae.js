@@ -34,8 +34,8 @@ function hex(n) {
     return String.fromCharCode(upper + (upper < 10 ? 48 : 55)) + String.fromCharCode(lower + (lower < 10 ? 48 : 55));
 }
 
-//        red         RO          orange       YO           yellow       YG           green      BG           blue        BP          purple       RP           red again
-const colors = [[255,0,0], [255,63,0], [255,127,0], [255,191,0], [255,255,0], [127,204,0], [0,204,0], [0,140,168], [0,35,204], [76,0,153], [127,0,127], [189,0,102], [255,0,0]]
+//               red        RO          orange       YO           yellow       YG           green      BG           blue        BP          purple       RP           red again
+const colors = [[255,0,0], [255,63,0], [255,127,0], [255,191,0], [255,255,0], [127,204,0], [0,204,0], [0,145,178], [0,50,255], [96,0,193], [140,0,140], [189,0,127], [255,0,0]]
 
 // n should be a float and the period of the rainbow is 1; factor is the relative brightness of the colors
 function rainbow(n, factor=1) {
@@ -85,16 +85,22 @@ function background() {
 // draw Thomae's function on a negative-inverse y scale (with color corresponding to magnitude)
 function thomaeInverse() {
     let ct = canvas.getContext("2d");
-    for (let q = 1; q < maxq; q++) {
-        for (let p = Math.floor(xmin * q) + (q == 1 ? 0 : 1); p <= xmax * q; p++) {
-            if (gcd(Math.abs(p),q) == 1) {
-                if (power <= 0) {
-                    ct.strokeStyle = rainbow(q / canvas.height / yscale);
-                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, q / yscale, 0, canvas.height);
-                } else {
+    if (power == 0) {
+        for (let q = 1; q < maxq; q++) {
+            for (let p = Math.floor(xmin * q) + (q == 1 ? 0 : 1); p <= xmax * q; p++) {
+                if (gcd(Math.abs(p),q) == 1) {
+                    ct.strokeStyle = color ? rainbow(q / canvas.height / yscale) : "#FFF";
+                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, q / yscale, 0, lines ? canvas.height - q / yscale : 2);
+                }
+            }
+        }
+    } else {
+        for (let q = 1; q < maxq; q++) {
+            for (let p = Math.floor(xmin * q) + (q == 1 ? 0 : 1); p <= xmax * q; p++) {
+                if (gcd(Math.abs(p),q) == 1) {
                     height = canvas.height / Math.pow(q * yscale, 1 / power);
-                    ct.strokeStyle = rainbow(1 - height / canvas.height);
-                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, canvas.height - height, 0, height);
+                    ct.strokeStyle = color ? rainbow(1 - height / canvas.height) : "#FFF";
+                    ct.strokeRect((p/q - xmin) / (xmax - xmin) * canvas.width, canvas.height - height, 0, lines ? height : 2);
                 }
             }
         }
@@ -103,23 +109,48 @@ function thomaeInverse() {
 
 // TODO add option for a power scale, where you can change the denominator limit and the power?
 
-// this function handles the interface for zooming
+// this function handles all keydown events
 // left/right to scroll, up/down to zoom y around top, shift+up/down to zoom x around center
 // zoom and scroll will be by some constant fraction of width or height
-// L to toggle labels on/off
 function keyHandler(keyEvent) {
     let width = xmax - xmin;
     switch (keyEvent.key) {
-        case "i":
+
+        case "i": // print some info about current state
             console.log("X axis: " + xmin + " to " + xmax);
             console.log("Y axis: " + -yscale * canvas.height + " to 0");
-        case "l":
+            let order = "Y axis scale: ";
+            switch (power) {
+                case 0: order += "negative inverse"; break;
+                case 1: order += "linear"; break;
+                case 2: order += "square root"; break;
+                case 3: order += "cube root"; break;
+                default: order += power + "th root"; break;
+            }
+            console.log(order);
+            console.log("Denominator range: 1 to " + maxq);
+            break;
+
+        case "l": // toggle x scale labels
             labels = !labels;
             break;
-        case " ":
+
+        case "Enter": // toggle between lines and dots
+            lines = !lines;
+            break;
+
+        case "c": // toggle color on/off
+        case "C": // also case insensitive because why not
+            color = !color;
+            break;
+
+        case " ": // increase/decrease root scale power (or switch to/from root scale/inverse scale)
             if (event.shiftKey) {
-                if (power <= 1) {
+                if (power == 0) {
                     power = 0;
+                } else if (power == 1) {
+                    power = 0;
+                    yscale = 0.5;
                 } else {
                     power--;
                 }
@@ -127,20 +158,27 @@ function keyHandler(keyEvent) {
                 power++;
             }
             break;
-        case "=":
+
+        case "=": // increase resolution (upper limit on q)
+        case "+": // case insensitive
             maxq *= 2;
             break;
-        case "-":
+
+        case "-": // decrease resolution
+        case "_": // also case insensitive
             maxq /= 2;
             break;
-        case "0":
+
+        case "0": // reset zoom to default
             if (keyEvent.ctrlKey) {
                 xmin = 0;
                 xmax = 1;
                 yscale = 1/2;
+                maxq = canvas.height * yscale;
                 break;
             }
-        case "ArrowUp":
+
+        case "ArrowUp": // zoom in x or y
             if (keyEvent.shiftKey) {
                 if (keyEvent.ctrlKey) {
                     xmin += width * motion * motion;
@@ -158,8 +196,10 @@ function keyHandler(keyEvent) {
                     yscale /= 1 + Math.pow(motion, 1/2);
                 }
             }
+            maxq = Math.max(maxq, canvas.height * yscale);
             break;
-        case "ArrowDown":
+
+        case "ArrowDown": // zoom out x or y
             if (keyEvent.shiftKey) {
                 if (keyEvent.ctrlKey) {
                     xmin -= width * motion * motion;
@@ -177,8 +217,10 @@ function keyHandler(keyEvent) {
                     yscale *= 1 + Math.pow(motion, 1/2);
                 }
             }
+            maxq = Math.max(maxq, canvas.height * yscale);
             break;
-        case "ArrowLeft":
+
+        case "ArrowLeft": // scroll left
             if (keyEvent.ctrlKey) {
                 xmax += width * motion * motion;
                 xmin += width * motion * motion;
@@ -187,7 +229,8 @@ function keyHandler(keyEvent) {
                 xmin += width * motion;
             }
             break;
-        case "ArrowRight":
+
+        case "ArrowRight": // scroll right
             if (keyEvent.ctrlKey) {
                 xmax -= width * motion * motion;
                 xmin -= width * motion * motion;
@@ -196,6 +239,7 @@ function keyHandler(keyEvent) {
                 xmin -= width * motion;
             }
             break;
+
         default:
             console.log(keyEvent.key);
             return;
@@ -207,17 +251,16 @@ function keyHandler(keyEvent) {
 
 // global so I don't have to worry about passing them to the handler
 let canvas;
-const rate = 1076;
 // scaling and moving factors
 let xmin = 0, xmax = 1, yscale = 1/2, power = 0;
 let maxq;
 let motion = 1/16;
-labels = false;
+let labels = false, lines = true, color = true;
 
 // setup config variables and start the program
 function main() {
     canvas = document.getElementById("canvas");
-    maxq = canvas.height / yscale;
+    maxq = canvas.height * yscale;
     background();
     thomaeInverse();
     if (labels) scale();
